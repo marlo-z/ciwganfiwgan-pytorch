@@ -21,6 +21,10 @@ class AudioDataSet:
         x = np.zeros((len(dir), 1, slice_len))
         i = 0
         for file in tqdm(dir):
+            # print("Reading file:", file, " with path:",  os.path.join(datadir, file))
+            # ignoring hidden file sthat starts with ._
+            if file.startswith("."):
+                continue
             audio = read(os.path.join(datadir, file))[1]
             if audio.shape[0] < slice_len:
                 audio = np.pad(audio, (0, slice_len - audio.shape[0]))
@@ -202,8 +206,7 @@ if __name__ == "__main__":
                 optimizer_Q.load_state_dict(torch.load(f=os.path.join(logdir, fname + "_Qopt.pt")))
 
             start_step = int(re.search(r'_step(\d+).*', fname).group(1))
-            print(f"Successfully loaded model. Continuing training from epoch {start_epoch},"
-                  f" step {start_step}")
+            print(f"Successfully loaded model. Continuing training from epoch {start_epoch}, step {start_step}")
 
         # Don't care why it failed
         except Exception as e:

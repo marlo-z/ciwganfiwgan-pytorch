@@ -10,6 +10,7 @@ import time
 
 import sounddevice as sd
 # import soundfile as sf
+from scipy.io.wavfile import write
 import torch
 
 from infowavegan import WaveGANGenerator
@@ -29,10 +30,16 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        '--dir',
+        '--logdir',
         type=str,
         required=True,
         help='Directory where checkpoints are saved'
+    )
+    parser.add_argument(
+        '--outdir',
+        type=str,
+        required=True,
+        help="Directory where generated output wav files are stored"
     )
     parser.add_argument(
         '--epoch',
@@ -54,7 +61,8 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
     epoch = args.epoch
-    dir = args.dir
+    dir = args.logdir
+    out_dir = args.outdir
     sample_rate = args.sample_rate
     slice_len = args.slice_len
 
@@ -68,9 +76,11 @@ if __name__ == "__main__":
     G.eval()
 
     # Generate from random noise
-    for i in range(100):
+    # for i in range(100):
+    for i in range(2):
         z = torch.FloatTensor(1, 100).uniform_(-1, 1).to(device)
         genData = G(z)[0, 0, :].detach().cpu().numpy()
         # write(f'out.wav', sample_rate, (genData * 32767).astype(np.int16))
-        sd.play(genData, sample_rate)
-        time.sleep(1)
+        # sd.play(genData, sample_rate)
+        # time.sleep(1)
+        write(os.path.join(out_dir, f"gen_out_{i}.wav"), sample_rate, genData)
