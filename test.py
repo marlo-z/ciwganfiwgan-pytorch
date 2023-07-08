@@ -7,9 +7,11 @@ Created on Sun May 29 13:05:27 2022
 import argparse
 import os
 import time
+from train import NUM_CATEG
 
-import sounddevice as sd
+# import sounddevice as sd
 # import soundfile as sf
+import numpy as np
 from scipy.io.wavfile import write
 import torch
 
@@ -48,10 +50,17 @@ if __name__ == "__main__":
         help='Training Directory'
     )
     parser.add_argument(
+        '--num_categ',
+        type=int,
+        default=10,
+        help='Q-net categories'
+        # length of latent code vector
+    )
+    parser.add_argument(
         '--sample_rate',
         type=int,
         default=16000,
-        help='Q-net categories'
+        help='Sample rate'
     )
     parser.add_argument(
         '--slice_len',
@@ -68,7 +77,8 @@ if __name__ == "__main__":
 
     # Load generator from checkpoint
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    fname, _ = get_continuation_fname(epoch, dir)
+    fname, eps = get_continuation_fname(epoch, dir)
+    print("---- Loaded model saved from Epoch {eps} ----")
     G = WaveGANGenerator(slice_len=slice_len)
     G.load_state_dict(torch.load(os.path.join(dir, fname + "_G.pt"),
                                  map_location = device))
@@ -76,11 +86,18 @@ if __name__ == "__main__":
     G.eval()
 
     # Generate from random noise
-    # for i in range(100):
-    for i in range(2):
-        z = torch.FloatTensor(1, 100).uniform_(-1, 1).to(device)
-        genData = G(z)[0, 0, :].detach().cpu().numpy()
-        # write(f'out.wav', sample_rate, (genData * 32767).astype(np.int16))
-        # sd.play(genData, sample_rate)
-        # time.sleep(1)
-        write(os.path.join(out_dir, f"gen_out_{i}.wav"), sample_rate, genData)
+    # Added: Manipulation of latent code vector c (for one-hot vector, ciw)
+
+    latent_codes = torch.nn.functional.one_hot(torch.arange(0, NUM_CATEG), num_classes=NUM_CATEG).to(device)
+    for i in range(NUM_CATEG):
+        c = latent_codes[i]
+        # for each latent code vector c, generate 20 examples 
+        for j in range(20):
+            # z : input noise --> add manipulation of latent code c
+            _z = torch.FloatTensor(1, 100 - NUM_CATEG).uniform_(-1, 1).to(device)
+            z = torch.cat((c, _z), dim=1)
+            genData = G(z)[0, 0, :].detach().cpu().numpy()
+            # write(f'out.wav', sample_rate, (genData * 32767).astype(np.int16))
+            # sd.play(genData, sample_rate)
+            # time.sleep(1)
+            write(os.path.join(out_dir, f"{i}-{j}.wav"), sample_rate, genData)

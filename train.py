@@ -83,9 +83,16 @@ if __name__ == "__main__":
     parser.add_argument(
         '--num_categ',
         type=int,
-        default=0,
+        default=10,
         help='Q-net categories'
+        # length of latent code vector c
     )
+    parser.add_argument(
+        '--Q_update_G',
+        action='store_true',
+        help='Q-net optimizer will update G parameters'
+    )
+    parser.set_defaults(Q_update_G=False)
     parser.add_argument(
         '--num_epochs',
         type=int,
@@ -173,13 +180,17 @@ if __name__ == "__main__":
         Q, optimizer_Q, criterion_Q = (None, None, None)
         if train_Q:
             Q = WaveGANQNetwork(slice_len=SLICE_LEN, num_categ=NUM_CATEG).to(device).train()
+            if args.Q_update_G:
+                # allow Q-network's optimizer to also update the Generator's parameters
+                combined_params = list(Q.parameters()) + list(G.parameters())
+                optimizer_Q = optim.RMSprop(combined_params, lr=LEARNING_RATE)
+            else:
+                optimizer_Q = optim.RMSprop(Q.parameters(), lr=LEARNING_RATE) 
         if args.fiw:
-            print("Training a fiwGAN with ", NUM_CATEG, " categories.")
-            optimizer_Q = optim.RMSprop(Q.parameters(), lr=LEARNING_RATE)
+            print("Training a fiwGAN with ", NUM_CATEG, " categories.")    
             criterion_Q = torch.nn.BCEWithLogitsLoss()
         elif args.ciw:
-            print("Training a ciwGAN with ", NUM_CATEG, " categories.")
-            optimizer_Q = optim.RMSprop(Q.parameters(), lr=LEARNING_RATE)
+            print("Training a ciwGAN with ", NUM_CATEG, " categories.")     
             criterion_Q = lambda inpt, target: torch.nn.CrossEntropyLoss()(inpt, target.max(dim=1)[1])
 
         return G, D, optimizer_G, optimizer_D, Q, optimizer_Q, criterion_Q
@@ -235,10 +246,13 @@ if __name__ == "__main__":
 
             if train_Q:
                 if args.fiw:
+                    # fiw: Binary vector, each entry is Bernoulli (0 or 1)
                     c = torch.FloatTensor(BATCH_SIZE, NUM_CATEG).bernoulli_().to(device)
                 else:
+                    # ciw: One-hot vector, only (randomly chosen) entry is 1, all else 0
                     c = torch.nn.functional.one_hot(torch.randint(0, NUM_CATEG, (BATCH_SIZE,)),
                                                     num_classes=NUM_CATEG).to(device)
+                # Input vector to generator network = (latent code c, len=num_cate) + (random noise z)
                 z = torch.cat((c, _z), dim=1)
             else:
                 z = _z
