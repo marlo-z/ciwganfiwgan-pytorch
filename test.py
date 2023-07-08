@@ -41,13 +41,18 @@ if __name__ == "__main__":
         '--outdir',
         type=str,
         required=True,
-        help="Directory where generated output wav files are stored"
+        help="Directory where generated outputs are stored"
+    )
+    parser.add_argument(
+        '--cont',
+        type=str,
+        default = "last",
+        help='Latest saved epoch checkpoint used for generation'
     )
     parser.add_argument(
         '--epoch',
         type=int,
-        required=True,
-        help='Training Directory'
+        help='Latest saved epoch checkpoint used for generation'
     )
     parser.add_argument(
         '--num_categ',
@@ -65,11 +70,12 @@ if __name__ == "__main__":
     parser.add_argument(
         '--slice_len',
         type=int,
-        default=16384,
+        default=16384
     )
 
     args = parser.parse_args()
-    epoch = args.epoch
+    # epoch = args.epoch
+    cont = args.cont
     dir = args.logdir
     out_dir = args.outdir
     sample_rate = args.sample_rate
