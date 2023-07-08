@@ -8,8 +8,9 @@ import argparse
 import os
 import time
 
-import sounddevice as sd
+# import sounddevice as sd
 # import soundfile as sf
+import numpy as np
 from scipy.io.wavfile import write
 import torch
 
@@ -39,28 +40,33 @@ if __name__ == "__main__":
         '--outdir',
         type=str,
         required=True,
-        help="Directory where generated output wav files are stored"
+        help="Directory where generated outputs are stored"
     )
     parser.add_argument(
+        '--cont',
+        type=str,
+        default = "last"
+        help='Latest saved epoch checkpoint used for generation'
+    )
+   parser.add_argument(
         '--epoch',
         type=int,
-        required=True,
-        help='Training Directory'
+        help='Latest saved epoch checkpoint used for generation'
     )
     parser.add_argument(
         '--sample_rate',
         type=int,
-        default=16000,
-        help='Q-net categories'
+        default=16000
     )
     parser.add_argument(
         '--slice_len',
         type=int,
-        default=16384,
+        default=16384
     )
 
     args = parser.parse_args()
-    epoch = args.epoch
+    # epoch = args.epoch
+    cont = args.cont
     dir = args.logdir
     out_dir = args.outdir
     sample_rate = args.sample_rate
@@ -68,7 +74,8 @@ if __name__ == "__main__":
 
     # Load generator from checkpoint
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    fname, _ = get_continuation_fname(epoch, dir)
+    # fname, _ = get_continuation_fname(epoch, dir)
+    fname, _ = get_continuation_fname(cont, dir)
     G = WaveGANGenerator(slice_len=slice_len)
     G.load_state_dict(torch.load(os.path.join(dir, fname + "_G.pt"),
                                  map_location = device))
@@ -76,11 +83,10 @@ if __name__ == "__main__":
     G.eval()
 
     # Generate from random noise
-    # for i in range(100):
-    for i in range(2):
+    for i in range(100):
         z = torch.FloatTensor(1, 100).uniform_(-1, 1).to(device)
         genData = G(z)[0, 0, :].detach().cpu().numpy()
         # write(f'out.wav', sample_rate, (genData * 32767).astype(np.int16))
         # sd.play(genData, sample_rate)
         # time.sleep(1)
-        write(os.path.join(out_dir, f"gen_out_{i}.wav"), sample_rate, genData)
+        write(os.path.join(out_dir, f"gen_out_{i}.wav"), sample_rate, (genData * 32767).astype(np.int16))
