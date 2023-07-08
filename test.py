@@ -45,10 +45,10 @@ if __name__ == "__main__":
     parser.add_argument(
         '--cont',
         type=str,
-        default = "last"
+        default = "last",
         help='Latest saved epoch checkpoint used for generation'
     )
-   parser.add_argument(
+    parser.add_argument(
         '--epoch',
         type=int,
         help='Latest saved epoch checkpoint used for generation'

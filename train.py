@@ -87,6 +87,12 @@ if __name__ == "__main__":
         help='Q-net categories'
     )
     parser.add_argument(
+        '--Q_update_G',
+        action='store_true',
+        help='Q-net optimizer will update G parameters'
+    )
+    parser.set_defaults(Q_update_G=False)
+    parser.add_argument(
         '--num_epochs',
         type=int,
         default=5000,
@@ -173,13 +179,19 @@ if __name__ == "__main__":
         Q, optimizer_Q, criterion_Q = (None, None, None)
         if train_Q:
             Q = WaveGANQNetwork(slice_len=SLICE_LEN, num_categ=NUM_CATEG).to(device).train()
+            if args.Q_update_G:
+                # allow Q-network's optimizer to also update the Generator's parameters
+                combined_params = list(Q.parameters()) + list(G.parameters())
+                optimizer_Q = optim.RMSprop(combined_params, lr=LEARNING_RATE)
+            else:
+                optimizer_Q = optim.RMSprop(Q.parameters(), lr=LEARNING_RATE)  
         if args.fiw:
             print("Training a fiwGAN with ", NUM_CATEG, " categories.")
-            optimizer_Q = optim.RMSprop(Q.parameters(), lr=LEARNING_RATE)
+            # optimizer_Q = optim.RMSprop(Q.parameters(), lr=LEARNING_RATE)
             criterion_Q = torch.nn.BCEWithLogitsLoss()
         elif args.ciw:
             print("Training a ciwGAN with ", NUM_CATEG, " categories.")
-            optimizer_Q = optim.RMSprop(Q.parameters(), lr=LEARNING_RATE)
+            # optimizer_Q = optim.RMSprop(Q.parameters(), lr=LEARNING_RATE)
             criterion_Q = lambda inpt, target: torch.nn.CrossEntropyLoss()(inpt, target.max(dim=1)[1])
 
         return G, D, optimizer_G, optimizer_D, Q, optimizer_Q, criterion_Q
