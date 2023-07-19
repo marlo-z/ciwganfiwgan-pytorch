@@ -92,11 +92,15 @@ if __name__ == "__main__":
     NUM_CATEG = args.num_categ
     NUM_EXAMPLES = args.num_examples
 
+
     # Load generator from saved checkpoint, specified by --cont parameter
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     fname, eps = get_continuation_fname(cont, dir)
+    out_dir = os.path.join(out_dir, f'{eps}epochs')
+    os.makedirs(out_dir, exist_ok=True)
     print(f"---- Loaded model saved from Epoch {eps} ----")
     print(f"---- Evaluating a ciwGAN with {NUM_CATEG} categories ----")
+    print(f"---- Saving generated outputs to {out_dir} ----")
     G = WaveGANGenerator(slice_len=slice_len)
     G.load_state_dict(torch.load(os.path.join(dir, fname + "_G.pt"),
                                  map_location = device))
@@ -118,7 +122,7 @@ if __name__ == "__main__":
         for val in values:
             # separate each latent code value into different directories
             sub_dir = os.path.join(out_dir, f"val{val}")
-            os.makedirs(sub_dir)
+            os.makedirs(sub_dir, exist_ok=True)
             c_ = c * val
             # for each latent code vector c_ (outside train range), generate NUM_EXAMPLES
             for j in range(NUM_EXAMPLES):
