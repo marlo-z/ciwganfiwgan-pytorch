@@ -47,13 +47,14 @@ if __name__ == "__main__":
         '--cont',
         type=str,
         default = "last",
-        help='Latest saved epoch checkpoint used for generation'
+        help='''Latest saved epoch checkpoint used for generation'''
+             '''Or, specify which epoch to use.'''
     )
-    parser.add_argument(
-        '--epoch',
-        type=int,
-        help='Latest saved epoch checkpoint used for generation'
-    )
+    # parser.add_argument(
+    #     '--epoch',
+    #     type=int,
+    #     help='Latest saved epoch checkpoint used for generation'
+    # )
     parser.add_argument(
         '--num_categ',
         type=int,
@@ -82,7 +83,7 @@ if __name__ == "__main__":
     slice_len = args.slice_len
     NUM_CATEG = args.num_categ
 
-    # Load generator from checkpoint
+    # Load generator from saved checkpoint, specified by --cont parameter
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     fname, eps = get_continuation_fname(cont, dir)
     print(f"---- Loaded model saved from Epoch {eps} ----")
@@ -94,19 +95,25 @@ if __name__ == "__main__":
 
     # Generate from random noise
     # Added: Manipulation of latent code vector c (for one-hot vector, ciw)
+    # Added: Setting values of latent code outside training range
 
+    NUM_EXAMPLES = 50
     class_values = torch.arange(0, NUM_CATEG)
     latent_codes = torch.nn.functional.one_hot(class_values, num_classes=NUM_CATEG).to(device)
+    values = [2, 5, 10, 15]
     for i in range(NUM_CATEG):
         c = torch.reshape(latent_codes[i], (1, NUM_CATEG))
-        # for each latent code vector c, generate 20 examples 
-        for j in range(20):
-            # z : input noise --> add manipulation of latent code c
-            _z = torch.FloatTensor(1, 100 - NUM_CATEG).uniform_(-1, 1).to(device)
-            z = torch.cat((c, _z), dim=1)
-            assert z.shape == (1, 100)
-            genData = G(z)[0, 0, :].detach().cpu().numpy()
-            # write(f'out.wav', sample_rate, (genData * 32767).astype(np.int16))
-            # sd.play(genData, sample_rate)
-            # time.sleep(1)
-            write(os.path.join(out_dir, f"{i}-{j}.wav"), sample_rate, genData)
+        # set the value of the latent codes to values outside of training range
+        for val in values:
+            c_ = c * val
+            # for each latent code vector c_ (outside train range), generate NUM_EXAMPLES
+            for j in range(NUM_EXAMPLES):
+                # z : input noise --> add manipulation of latent code c
+                _z = torch.FloatTensor(1, 100 - NUM_CATEG).uniform_(-1, 1).to(device)
+                z = torch.cat((c_, _z), dim=1)
+                assert z.shape == (1, 100)
+                genData = G(z)[0, 0, :].detach().cpu().numpy()
+                # write(f'out.wav', sample_rate, (genData * 32767).astype(np.int16))
+                # sd.play(genData, sample_rate)
+                # time.sleep(1)
+                write(os.path.join(out_dir, f"code{i}-val{val}-ex{j}.wav"), sample_rate, genData)
