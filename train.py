@@ -83,10 +83,12 @@ if __name__ == "__main__":
     parser.add_argument(
         '--num_categ',
         type=int,
-        default=10,
+        default=5,
         help='Q-net categories'
         # length of latent code vector c
     )
+    # whether or no Q-net's optimizer updates G's parameters,
+    # defaults to false
     parser.add_argument(
         '--Q_update_G',
         action='store_true',
@@ -187,10 +189,13 @@ if __name__ == "__main__":
             else:
                 optimizer_Q = optim.RMSprop(Q.parameters(), lr=LEARNING_RATE) 
         if args.fiw:
-            print("Training a fiwGAN with ", NUM_CATEG, " categories.")    
+            print("Training a fiwGAN with ", NUM_CATEG, " categories.")
+            # fiw: latent code is binary bit-vector 
             criterion_Q = torch.nn.BCEWithLogitsLoss()
         elif args.ciw:
-            print("Training a ciwGAN with ", NUM_CATEG, " categories.")     
+            # ciw: latent code is one-hot vector
+            print("Training a ciwGAN with ", NUM_CATEG, " categories.")
+            # Question: each time criterion_Q is called --> a new CrossEntropyLoss object is created
             criterion_Q = lambda inpt, target: torch.nn.CrossEntropyLoss()(inpt, target.max(dim=1)[1])
 
         return G, D, optimizer_G, optimizer_D, Q, optimizer_Q, criterion_Q
@@ -229,7 +234,7 @@ if __name__ == "__main__":
     # Set Up Writer
     writer = SummaryWriter(logdir)
     step = start_step
-
+    ### Begin Training ###
     for epoch in range(start_epoch + 1, NUM_EPOCHS):
 
         print("Epoch {} of {}".format(epoch, NUM_EPOCHS))
@@ -237,8 +242,12 @@ if __name__ == "__main__":
         pbar = tqdm(dataloader)
         real = dataset[:BATCH_SIZE].to(device)
 
+        # iterate over "real" audio recordings in dataloader, in mini-batches
+        # i: i-th batch in the full dataset
+        # real: mini-batch of recorded audio vectors
+        # each "flush" of mini-batches through the network amounts to 1 "step"
         for i, real in enumerate(pbar):
-            # D Update
+            # D Update --> D learns to classify real vs fake data
             optimizer_D.zero_grad()
             real = real.to(device)
             epsilon = torch.rand(BATCH_SIZE, 1, 1).repeat(1, 1, SLICE_LEN).to(device)
@@ -260,11 +269,15 @@ if __name__ == "__main__":
             fake = G(z)
             penalty = gradient_penalty(G, D, real, fake, epsilon)
 
+            # Value function: D(x) - D(G(z))
+            # D tries to maximize --> want to predict real D(x) as positive and predict fake D(G(z)) as negative
+            # G tries to minimize --> want to trick D(G(z)) to be predicted as positive, so -D(G(z)) will be negative
             D_loss = torch.mean(D(fake) - D(real) + LAMBDA * penalty)
             writer.add_scalar('Loss/Discriminator', D_loss.detach().item(), step)
             D_loss.backward()
             optimizer_D.step()
 
+            # Updating G (only update G after 5 updates of D)
             if i % WAVEGAN_DISC_NUPDATES == 0:
                 optimizer_G.zero_grad()
                 if train_Q:
@@ -278,7 +291,6 @@ if __name__ == "__main__":
                     else:
                         c = torch.nn.functional.one_hot(torch.randint(0, NUM_CATEG, (BATCH_SIZE,)),
                                                         num_classes=NUM_CATEG).to(device)
-
                     z = torch.cat((c, _z), dim=1)
                 else:
                     z = _z
@@ -286,6 +298,8 @@ if __name__ == "__main__":
                 G_z = G(z)
 
                 # G Loss
+                # G wants to minimize value D(x) - D(G(z)) --> minimize the quantity -D(G(z))
+                # (aka maximizing D(G(z)), i.e. tricking D to predict G(z) as positive/real)
                 G_loss = torch.mean(-D(G_z))
                 G_loss.backward(retain_graph=True)
                 writer.add_scalar('Loss/Generator', G_loss.detach().item(), step)

@@ -3,6 +3,7 @@ import re
 
 
 def get_continuation_fname(CONT, logdir):
+    # if isinstance(CONT, str) and CONT.lower() == "last":
     if CONT.lower() == "last":
         # Take last
         files = [f for f in os.listdir(logdir) if os.path.isfile(os.path.join(logdir, f))]
@@ -18,8 +19,9 @@ def get_continuation_fname(CONT, logdir):
         epoch = int(maxEpoch)
 
     else:
-
         # parametrized by the epoch
+        assert re.search('^\d+$', CONT)     # check is a number
+        CONT = int(CONT)
         fPrefix = f'epoch{CONT}_step'
         files = [f for f in os.listdir(logdir) if os.path.isfile(os.path.join(logdir, f))]
         fnames = [re.match(f"({re.escape(fPrefix)}\d+).*\.pt$", f) for f in files]
