@@ -7,7 +7,7 @@ Created on Sun May 29 13:05:27 2022
 import argparse
 import os
 import time
-from train import NUM_CATEG
+# from train import NUM_CATEG
 
 # import sounddevice as sd
 # import soundfile as sf
@@ -80,11 +80,12 @@ if __name__ == "__main__":
     out_dir = args.outdir
     sample_rate = args.sample_rate
     slice_len = args.slice_len
+    NUM_CATEG = args.num_categ
 
     # Load generator from checkpoint
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    fname, eps = get_continuation_fname(epoch, dir)
-    print("---- Loaded model saved from Epoch {eps} ----")
+    fname, eps = get_continuation_fname(cont, dir)
+    print(f"---- Loaded model saved from Epoch {eps} ----")
     G = WaveGANGenerator(slice_len=slice_len)
     G.load_state_dict(torch.load(os.path.join(dir, fname + "_G.pt"),
                                  map_location = device))
@@ -94,14 +95,16 @@ if __name__ == "__main__":
     # Generate from random noise
     # Added: Manipulation of latent code vector c (for one-hot vector, ciw)
 
-    latent_codes = torch.nn.functional.one_hot(torch.arange(0, NUM_CATEG), num_classes=NUM_CATEG).to(device)
+    class_values = torch.arange(0, NUM_CATEG)
+    latent_codes = torch.nn.functional.one_hot(class_values, num_classes=NUM_CATEG).to(device)
     for i in range(NUM_CATEG):
-        c = latent_codes[i]
+        c = torch.reshape(latent_codes[i], (1, NUM_CATEG))
         # for each latent code vector c, generate 20 examples 
         for j in range(20):
             # z : input noise --> add manipulation of latent code c
             _z = torch.FloatTensor(1, 100 - NUM_CATEG).uniform_(-1, 1).to(device)
             z = torch.cat((c, _z), dim=1)
+            assert z.shape == (1, 100)
             genData = G(z)[0, 0, :].detach().cpu().numpy()
             # write(f'out.wav', sample_rate, (genData * 32767).astype(np.int16))
             # sd.play(genData, sample_rate)
