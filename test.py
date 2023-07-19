@@ -109,6 +109,9 @@ if __name__ == "__main__":
         c = torch.reshape(latent_codes[i], (1, NUM_CATEG))
         # set the value of the latent codes to values outside of training range
         for val in values:
+            # separate each latent code value into different directories
+            sub_dir = os.path.join(out_dir, f"val{val}")
+            os.makedirs(sub_dir)
             c_ = c * val
             # for each latent code vector c_ (outside train range), generate NUM_EXAMPLES
             for j in range(NUM_EXAMPLES):
@@ -118,4 +121,4 @@ if __name__ == "__main__":
                 assert z.shape == (1, 100)
                 genData = G(z)[0, 0, :].detach().cpu().numpy()
                 output = (genData * 32767).astype(np.int16)    # convert output value range
-                write(os.path.join(out_dir, f"code{i}-val{val}-ex{j}.wav"), sample_rate, output)
+                write(os.path.join(sub_dir, f"code{i}-ex{j}-val{val}.wav"), sample_rate, output)
