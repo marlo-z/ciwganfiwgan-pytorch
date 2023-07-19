@@ -63,6 +63,12 @@ if __name__ == "__main__":
         # length of latent code vector
     )
     parser.add_argument(
+        '--num_examples',
+        type=int,
+        default=100,
+        help='Number of examples to generate for each latent code'
+    )
+    parser.add_argument(
         '--sample_rate',
         type=int,
         default=16000,
@@ -84,6 +90,7 @@ if __name__ == "__main__":
     sample_rate = args.sample_rate
     slice_len = args.slice_len
     NUM_CATEG = args.num_categ
+    NUM_EXAMPLES = args.num_examples
 
     # Load generator from saved checkpoint, specified by --cont parameter
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -100,7 +107,6 @@ if __name__ == "__main__":
     # Added: Manipulation of latent code vector c (for one-hot vector, ciw)
     # Added: Setting values of latent code outside training range
 
-    NUM_EXAMPLES = 50
     class_values = torch.arange(0, NUM_CATEG)
     latent_codes = torch.nn.functional.one_hot(class_values, num_classes=NUM_CATEG).to(device)
     # replaces each class value i --> a one-hot vector [0,..1,..0] representing that class 
