@@ -121,6 +121,8 @@ if __name__ == "__main__":
     
     for i in range(NUM_CATEG):
         c = torch.reshape(latent_codes[i], (1, NUM_CATEG))
+        # print(c)
+        # print("")
         # set the value of the latent codes to values outside of training range
         for val in values:
             # separate each latent code value into different directories
@@ -132,7 +134,8 @@ if __name__ == "__main__":
                 # z : input noise --> add manipulation of latent code c
                 _z = torch.FloatTensor(1, 100 - NUM_CATEG).uniform_(-1, 1).to(device)
                 z = torch.cat((c_, _z), dim=1)
+                # print(z)
                 assert z.shape == (1, 100)
                 genData = G(z)[0, 0, :].detach().cpu().numpy()
-                output = (genData * 32767).astype(np.int16)    # convert output value range
-                write(os.path.join(sub_dir, f"code{i}-ex{j}-val{val}.wav"), sample_rate, output)
+                #output = (genData * 32767).astype(np.int16)    # convert output value range
+                write(os.path.join(sub_dir, f"code{i}-ex{j}-val{val}.wav"), sample_rate, genData)
