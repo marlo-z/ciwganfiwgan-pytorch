@@ -43,18 +43,33 @@ if __name__ == "__main__":
         required=True,
         help="Directory where generated outputs are stored"
     )
-    parser.add_argument(
-        '--cont',
-        type=str,
-        default = "last",
-        help='''Latest saved epoch checkpoint used for generation'''
-             '''Or, specify which epoch to use.'''
-    )
     # parser.add_argument(
-    #     '--epoch',
-    #     type=int,
-    #     help='Latest saved epoch checkpoint used for generation'
+    #     '--cont',
+    #     type=str,
+    #     default = "last",
+    #     help='''Latest saved epoch checkpoint used for generation'''
+    #          '''Or, specify which epoch to use.'''
     # )
+
+    parser.add_argument(
+        '--epochs',
+        nargs='*',
+        type=int,
+        help='''Which saved epoch of model to load'''
+             '''if list of epoch numbers: will generate outputs using each epoch's model'''
+             '''if no argument provided: load the latest epoch'''
+    )
+
+    parser.add_argument(
+        '--latent_vals',
+        nargs='*',
+        type=int,
+        help='''Value of the latent code vectors'''
+             '''(for extrapolating outside training range, ie.e [15,0,0,....])'''
+             '''if list of value: will generate outputs using each value '''
+             '''if no argument provided: will use default value 1'''
+    )
+
     parser.add_argument(
         '--num_categ',
         type=int,
@@ -81,10 +96,14 @@ if __name__ == "__main__":
     )
 
     args = parser.parse_args()
-    # epoch: pass in integer of epoch to load
-    # cont: pass in string "last" to load from latest epoch
-    # epoch = args.epoch
-    cont = args.cont
+    if len(args.epochs) == 0:
+        epochs = ['last']
+    else:
+        epochs = args.epochs
+    if len(args.latent_vals) == 0:
+        latent_vals = [1]
+    else:
+        latent_vals = args.latent_vals
     log_dir = args.logdir
     out_dir = args.outdir
     # creates main outputs directory: ./gen_outputs
@@ -97,45 +116,44 @@ if __name__ == "__main__":
 
     # Load generator from saved checkpoint, specified by --cont parameter
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    fname, eps = get_continuation_fname(cont, log_dir)
-    out_dir = os.path.join(out_dir, f'{eps}epochs')
-    # creates directory: ./gen_outputs/{num_eps}epochs
-    os.makedirs(out_dir, exist_ok=True)
-    print(f"---- Loaded model saved from Epoch {eps} ----")
-    print(f"---- Evaluating a ciwGAN with {NUM_CATEG} categories ----")
-    print(f"---- Saving generated outputs to {out_dir} ----")
-    G = WaveGANGenerator(slice_len=slice_len)
-    G.load_state_dict(torch.load(os.path.join(dir, fname + "_G.pt"),
-                                 map_location = device))
-    G.to(device)
-    G.eval()
 
-    # Generate from random noise
-    # Added: Manipulation of latent code vector c (for one-hot vector, ciw)
-    # Added: Setting values of latent code outside training range
+    for target_epoch in epochs:
+        fname, eps = get_continuation_fname(target_epoch, log_dir)
+        out_dir = os.path.join(out_dir, f'{eps}epochs')
+        # creates sub-directory: ./gen_outputs/{num_eps}epochs
+        os.makedirs(out_dir, exist_ok=True)
+        print(f"---- Loaded model saved from Epoch {eps} ----")
+        print(f"---- Evaluating a ciwGAN with {NUM_CATEG} categories ----")
+        G = WaveGANGenerator(slice_len=slice_len)
+        G.load_state_dict(torch.load(os.path.join(dir, fname + "_G.pt"),
+                                    map_location = device))
+        G.to(device)
+        G.eval()
 
-    class_values = torch.arange(0, NUM_CATEG)
-    latent_codes = torch.nn.functional.one_hot(class_values, num_classes=NUM_CATEG).to(device)
-    # replaces each class value i --> a one-hot vector [0,..1,..0] representing that class 
-    values = [1, 2, 5, 10, 15]
-    
-    for i in range(NUM_CATEG):
-        c = torch.reshape(latent_codes[i], (1, NUM_CATEG))
-        # print(c)
-        # print("")
-        # set the value of the latent codes to values outside of training range
-        for val in values:
-            # separate each latent code value into different directories
-            sub_dir = os.path.join(out_dir, f"val{val}")
-            os.makedirs(sub_dir, exist_ok=True)
-            c_ = c * val
-            # for each latent code vector c_ (outside train range), generate NUM_EXAMPLES
-            for j in range(NUM_EXAMPLES):
-                # z : input noise --> add manipulation of latent code c
-                _z = torch.FloatTensor(1, 100 - NUM_CATEG).uniform_(-1, 1).to(device)
-                z = torch.cat((c_, _z), dim=1)
-                # print(z)
-                assert z.shape == (1, 100)
-                genData = G(z)[0, 0, :].detach().cpu().numpy()
-                #output = (genData * 32767).astype(np.int16)    # convert output value range
-                write(os.path.join(sub_dir, f"code{i}-ex{j}-val{val}.wav"), sample_rate, genData)
+        # Generate from random noise
+        # Added: Manipulation of latent code vector c (for one-hot vector, ciw)
+        # Added: Setting values of latent code outside training range
+
+        class_values = torch.arange(0, NUM_CATEG)
+        latent_codes = torch.nn.functional.one_hot(class_values, num_classes=NUM_CATEG).to(device)
+        # replaces each class value i --> a one-hot vector [0,..1,..0] representing that class 
+        
+        for i in range(NUM_CATEG):
+            c = torch.reshape(latent_codes[i], (1, NUM_CATEG))
+            # set the value of the latent codes to values outside of training range
+            for val in latent_vals:
+                # separate each latent code value into different directories
+                sub_dir = os.path.join(out_dir, f"val{val}")
+                os.makedirs(sub_dir, exist_ok=True)
+                c_ = c * val
+                # for each latent code vector c_ (outside train range), generate NUM_EXAMPLES
+                for j in range(NUM_EXAMPLES):
+                    # z : input noise --> add manipulation of latent code c
+                    _z = torch.FloatTensor(1, 100 - NUM_CATEG).uniform_(-1, 1).to(device)
+                    z = torch.cat((c_, _z), dim=1)
+                    # print(z)
+                    assert z.shape == (1, 100)
+                    genData = G(z)[0, 0, :].detach().cpu().numpy()
+                    output = (genData * 32767).astype(np.int16)    # convert output value range
+                    write(os.path.join(sub_dir, f"code{i}-ex{j}-val{val}.wav"), sample_rate, genData)
+                    print(f"---- Saving generated outputs to {sub_dir} ----")
