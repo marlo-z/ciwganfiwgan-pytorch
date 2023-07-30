@@ -85,8 +85,10 @@ if __name__ == "__main__":
     # cont: pass in string "last" to load from latest epoch
     # epoch = args.epoch
     cont = args.cont
-    dir = args.logdir
+    log_dir = args.logdir
     out_dir = args.outdir
+    # creates main outputs directory: ./gen_outputs
+    os.makedirs(out_dir, exist_ok=True)
     sample_rate = args.sample_rate
     slice_len = args.slice_len
     NUM_CATEG = args.num_categ
@@ -95,8 +97,9 @@ if __name__ == "__main__":
 
     # Load generator from saved checkpoint, specified by --cont parameter
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    fname, eps = get_continuation_fname(cont, dir)
+    fname, eps = get_continuation_fname(cont, log_dir)
     out_dir = os.path.join(out_dir, f'{eps}epochs')
+    # creates directory: ./gen_outputs/{num_eps}epochs
     os.makedirs(out_dir, exist_ok=True)
     print(f"---- Loaded model saved from Epoch {eps} ----")
     print(f"---- Evaluating a ciwGAN with {NUM_CATEG} categories ----")
@@ -114,7 +117,7 @@ if __name__ == "__main__":
     class_values = torch.arange(0, NUM_CATEG)
     latent_codes = torch.nn.functional.one_hot(class_values, num_classes=NUM_CATEG).to(device)
     # replaces each class value i --> a one-hot vector [0,..1,..0] representing that class 
-    values = [2, 5, 10, 15]
+    values = [1, 2, 5, 10, 15]
     
     for i in range(NUM_CATEG):
         c = torch.reshape(latent_codes[i], (1, NUM_CATEG))

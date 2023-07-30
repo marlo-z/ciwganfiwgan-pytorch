@@ -186,8 +186,10 @@ if __name__ == "__main__":
                 # allow Q-network's optimizer to also update the Generator's parameters
                 combined_params = list(Q.parameters()) + list(G.parameters())
                 optimizer_Q = optim.RMSprop(combined_params, lr=LEARNING_RATE)
+                print("Q-network optimizer will update Generator")
             else:
                 optimizer_Q = optim.RMSprop(Q.parameters(), lr=LEARNING_RATE) 
+                print("Q-network optimizer will NOT update Generator")
         if args.fiw:
             print("Training a fiwGAN with ", NUM_CATEG, " categories.")
             # fiw: latent code is binary bit-vector 
