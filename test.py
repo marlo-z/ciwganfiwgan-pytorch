@@ -105,9 +105,9 @@ if __name__ == "__main__":
     else:
         latent_vals = args.latent_vals
     log_dir = args.logdir
-    out_dir = args.outdir
+    out_dir_main = args.outdir
     # creates main outputs directory: ./gen_outputs
-    os.makedirs(out_dir, exist_ok=True)
+    os.makedirs(out_dir_main, exist_ok=True)
     sample_rate = args.sample_rate
     slice_len = args.slice_len
     NUM_CATEG = args.num_categ
@@ -119,13 +119,13 @@ if __name__ == "__main__":
 
     for target_epoch in epochs:
         fname, eps = get_continuation_fname(target_epoch, log_dir)
-        out_dir = os.path.join(out_dir, f'{eps}epochs')
+        out_dir_epoch = os.path.join(out_dir_main, f'{eps}epochs')
         # creates sub-directory: ./gen_outputs/{num_eps}epochs
-        os.makedirs(out_dir, exist_ok=True)
+        os.makedirs(out_dir_epoch, exist_ok=True)
         print(f"---- Loaded model saved from Epoch {eps} ----")
         print(f"---- Evaluating a ciwGAN with {NUM_CATEG} categories ----")
         G = WaveGANGenerator(slice_len=slice_len)
-        G.load_state_dict(torch.load(os.path.join(dir, fname + "_G.pt"),
+        G.load_state_dict(torch.load(os.path.join(log_dir, fname + "_G.pt"),
                                     map_location = device))
         G.to(device)
         G.eval()
@@ -143,9 +143,10 @@ if __name__ == "__main__":
             # set the value of the latent codes to values outside of training range
             for val in latent_vals:
                 # separate each latent code value into different directories
-                sub_dir = os.path.join(out_dir, f"val{val}")
-                os.makedirs(sub_dir, exist_ok=True)
+                out_dir_val = os.path.join(out_dir_epoch, f"val{val}")
+                os.makedirs(out_dir_val, exist_ok=True)
                 c_ = c * val
+                print(f"---- Saving generated outputs to {out_dir_val} ----")
                 # for each latent code vector c_ (outside train range), generate NUM_EXAMPLES
                 for j in range(NUM_EXAMPLES):
                     # z : input noise --> add manipulation of latent code c
@@ -155,5 +156,5 @@ if __name__ == "__main__":
                     assert z.shape == (1, 100)
                     genData = G(z)[0, 0, :].detach().cpu().numpy()
                     output = (genData * 32767).astype(np.int16)    # convert output value range
-                    write(os.path.join(sub_dir, f"code{i}-ex{j}-val{val}.wav"), sample_rate, genData)
-                    print(f"---- Saving generated outputs to {sub_dir} ----")
+                    write(os.path.join(out_dir_val, f"code{i}-ex{j}-val{val}.wav"), sample_rate, genData)
+                    
